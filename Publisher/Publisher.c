@@ -1,5 +1,7 @@
 #include "stdio.h"
 #include "stdbool.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 #include "Publisher.h"
 
@@ -10,12 +12,16 @@ PubNode_s PubHead = {
     .next = NULL,
 };
 
-static bool Pub_Lock = false;
+static SemaphoreHandle_t Pub_Mutex;
 
 void SendPublishEvent(char *event, void *data)
 {
     // 锁被占用
-    if (Pub_Lock)
+    if (!Pub_Mutex)
+    {
+        Pub_Mutex = xSemaphoreCreateMutex();
+    }
+    if (xSemaphoreTake(Pub_Mutex, portMAX_DELAY / portTICK_PERIOD_MS) == pdFALSE)
     {
         return;
     }
@@ -27,9 +33,6 @@ void SendPublishEvent(char *event, void *data)
     {
         return;
     }
-
-    // 上锁
-    Pub_Lock = true;
 
     // 将发布信息追加到链表尾部
     node->event = event;
@@ -45,19 +48,20 @@ void SendPublishEvent(char *event, void *data)
     node->prev = pos;
 
     // 释放锁
-    Pub_Lock = false;
+    xSemaphoreGive(Pub_Mutex);
 }
 
 void ClearPublishEvent(char *event, void *data)
 {
     // 锁被占用
-    if (Pub_Lock)
+    if (!Pub_Mutex)
+    {
+        Pub_Mutex = xSemaphoreCreateMutex();
+    }
+    if (xSemaphoreTake(Pub_Mutex, portMAX_DELAY / portTICK_PERIOD_MS) == pdFALSE)
     {
         return;
     }
-
-    // 上锁
-    Pub_Lock = true;
 
     // 从链表中删除
     PubNode_s *pos = &PubHead;
@@ -77,5 +81,5 @@ void ClearPublishEvent(char *event, void *data)
     }
 
     // 释放锁
-    Pub_Lock = false;
+    xSemaphoreGive(Pub_Mutex);
 }

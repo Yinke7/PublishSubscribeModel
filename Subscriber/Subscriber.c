@@ -1,5 +1,7 @@
 #include "stdio.h"
 #include "stdbool.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
 #include "Subscriber.h"
 
@@ -10,15 +12,10 @@ SubNode_s SubHead = {
     .next = NULL,
 };
 
-static bool Sub_Lock = false;
+static SemaphoreHandle_t Sub_Mutex;
 
 void AddSubscriberEvent(char *event, HandleEvent func)
 {
-    // 锁被占用
-    if (Sub_Lock)
-    {
-        return;
-    }
 
     SubNode_s *node = (SubNode_s *)malloc(sizeof(SubNode_s));
 
@@ -29,7 +26,14 @@ void AddSubscriberEvent(char *event, HandleEvent func)
     }
 
     // 上锁
-    Sub_Lock = true;
+    if (!Sub_Mutex)
+    {
+        Sub_Mutex = xSemaphoreCreateMutex();
+    }
+    if (xSemaphoreTake(Sub_Mutex, portMAX_DELAY / portTICK_PERIOD_MS) == pdFALSE)
+    {
+        return;
+    }
 
     // 将指定订阅追加到链表尾部
     node->event = event;
@@ -45,19 +49,20 @@ void AddSubscriberEvent(char *event, HandleEvent func)
     node->prev = pos;
 
     // 释放锁
-    Sub_Lock = false;
+    xSemaphoreGive(Sub_Mutex);
 }
 
 void DeleteSubscriberEvent(char *event, HandleEvent func)
 {
     // 锁被占用
-    if (Sub_Lock)
+    if (!Sub_Mutex)
+    {
+        Sub_Mutex = xSemaphoreCreateMutex();
+    }
+    if (xSemaphoreTake(Sub_Mutex, portMAX_DELAY / portTICK_PERIOD_MS) == pdFALSE)
     {
         return;
     }
-
-    // 上锁
-    Sub_Lock = true;
 
     // 从链表中删除
     SubNode_s *pos = &SubHead;
@@ -77,5 +82,5 @@ void DeleteSubscriberEvent(char *event, HandleEvent func)
     }
 
     // 释放锁
-    Sub_Lock = false;
+    xSemaphoreGive(Sub_Mutex);
 }
