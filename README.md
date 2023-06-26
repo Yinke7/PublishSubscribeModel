@@ -63,7 +63,6 @@ void ProcDataCenter(void);
 
 ## C++ 实现
 
-### 参考链接
+## 参考链接
 
 * [C/C++实现发布订阅模式](https://zhuanlan.zhihu.com/p/484171260 )
-
