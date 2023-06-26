@@ -2,9 +2,8 @@
 #define __DATACENTER_H__
 
 /**
- * @brief
- * 初始化数据中心
+ * @brief 数据中心处理发布信息和订阅事件
  */
-void InitDataCenter(void);
+void ProcDataCenter(void);
 
 #endif
